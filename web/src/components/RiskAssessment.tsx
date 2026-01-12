@@ -128,42 +128,111 @@ interface RiskAssessmentProps {
   onCancel: () => void;
 }
 
+export interface AssetAllocation {
+  usStocks: number;        // US equities (large, mid, small cap)
+  intlStocks: number;      // International developed + emerging markets
+  bonds: number;           // Investment-grade bonds, treasuries
+  commodities: number;     // Gold, silver, energy, agriculture
+  alternatives: number;    // REITs, infrastructure, hedge strategies
+  crypto: number;          // Digital assets (only for experienced investors)
+  cash: number;            // Money market, short-term treasuries
+}
+
 export interface RiskAssessmentResult {
   score: number;
   tolerance: 'conservative' | 'moderate' | 'aggressive';
   description: string;
   investmentStyle: string;
-  assetAllocation: {
-    stocks: number;
-    bonds: number;
-    cash: number;
-  };
+  assetAllocation: AssetAllocation;
 }
 
 function calculateResult(answers: Record<string, number>): RiskAssessmentResult {
   const scores = Object.values(answers);
   const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
 
+  // Weight certain factors more heavily for nuanced scoring
+  const timelineWeight = answers.timeline || avgScore;
+  const volatilityWeight = answers.volatility_comfort || avgScore;
+  const experienceWeight = answers.experience || avgScore;
+
+  // Calculate weighted score: 50% average, 25% timeline, 25% volatility tolerance
+  const weightedScore = (avgScore * 0.5) + (timelineWeight * 0.25) + (volatilityWeight * 0.25);
+
   let tolerance: 'conservative' | 'moderate' | 'aggressive';
   let description: string;
   let investmentStyle: string;
-  let assetAllocation: { stocks: number; bonds: number; cash: number };
+  let assetAllocation: AssetAllocation;
 
-  if (avgScore <= 2) {
+  if (weightedScore <= 2.2) {
+    // CONSERVATIVE
     tolerance = 'conservative';
-    description = "You prioritize capital preservation over growth. You're uncomfortable with volatility and prefer steady, predictable returns even if they're lower.";
-    investmentStyle = "Focus on stable, dividend-paying stocks, high-quality bonds, and keeping a solid cash reserve. Avoid speculative investments.";
-    assetAllocation = { stocks: 30, bonds: 50, cash: 20 };
-  } else if (avgScore <= 3.5) {
+    description = "You prioritize capital preservation over growth. You're uncomfortable with volatility and prefer steady, predictable returns even if they're lower. Your portfolio should emphasize stability and income.";
+    investmentStyle = "Focus on high-quality bonds, dividend aristocrats, and stable value stocks. Minimal exposure to volatile assets. Keep substantial cash for emergencies and opportunities. Gold as an inflation hedge.";
+    assetAllocation = {
+      usStocks: 20,
+      intlStocks: 5,
+      bonds: 40,
+      commodities: 5,
+      alternatives: 5,
+      crypto: 0,
+      cash: 25,
+    };
+  } else if (weightedScore <= 3.0) {
+    // MODERATE-CONSERVATIVE
     tolerance = 'moderate';
-    description = "You seek a balance between growth and stability. You can handle some market fluctuations but prefer to avoid extreme volatility.";
-    investmentStyle = "A balanced portfolio with a mix of growth and value stocks, bonds for stability, and some exposure to diverse asset classes.";
-    assetAllocation = { stocks: 60, bonds: 30, cash: 10 };
-  } else {
+    description = "You lean toward stability but accept some growth-oriented risk. You can handle modest market fluctuations but prefer to avoid extreme volatility. A balanced approach with a defensive tilt suits you.";
+    investmentStyle = "Balanced portfolio with quality dividend stocks and investment-grade bonds. Some international diversification. REITs for income. Commodities as inflation protection. Minimal speculative exposure.";
+    assetAllocation = {
+      usStocks: 30,
+      intlStocks: 10,
+      bonds: 30,
+      commodities: 7,
+      alternatives: 8,
+      crypto: 0,
+      cash: 15,
+    };
+  } else if (weightedScore <= 3.7) {
+    // MODERATE
+    tolerance = 'moderate';
+    description = "You seek a balance between growth and stability. You understand volatility is the price of returns and can weather market fluctuations, but prefer to manage downside risk.";
+    investmentStyle = "Diversified portfolio across asset classes. Mix of growth and value stocks. Meaningful international and emerging market exposure. Alternatives for diversification. Small crypto position only if experienced.";
+    assetAllocation = {
+      usStocks: 35,
+      intlStocks: 15,
+      bonds: 20,
+      commodities: 8,
+      alternatives: 10,
+      crypto: experienceWeight >= 4 ? 2 : 0,
+      cash: experienceWeight >= 4 ? 10 : 12,
+    };
+  } else if (weightedScore <= 4.3) {
+    // MODERATE-AGGRESSIVE
     tolerance = 'aggressive';
-    description = "You prioritize growth and can stomach significant volatility. You're comfortable with market swings and see downturns as buying opportunities.";
-    investmentStyle = "Growth-focused portfolio with heavy stock allocation, including small-caps and emerging markets. Minimal bonds, used strategically.";
-    assetAllocation = { stocks: 85, bonds: 10, cash: 5 };
+    description = "You prioritize growth and can stomach significant volatility. You see market downturns as buying opportunities and have the timeline to recover from drawdowns.";
+    investmentStyle = "Growth-focused with substantial equity exposure. Meaningful emerging markets and small-cap allocation. Alternative investments for alpha. Crypto exposure if comfortable with the asset class.";
+    assetAllocation = {
+      usStocks: 40,
+      intlStocks: 20,
+      bonds: 10,
+      commodities: 8,
+      alternatives: 10,
+      crypto: experienceWeight >= 4 ? 5 : 2,
+      cash: experienceWeight >= 4 ? 7 : 10,
+    };
+  } else {
+    // AGGRESSIVE
+    tolerance = 'aggressive';
+    description = "You're focused on maximizing long-term returns and can handle extreme volatility. You have a very long horizon and see major drawdowns as opportunities. Capital preservation is secondary to growth.";
+    investmentStyle = "Maximum growth allocation with heavy equity tilt. Significant emerging markets and small-cap exposure. Alternative strategies for alpha. Meaningful crypto allocation. Minimal bonds and cash - only for tactical opportunities.";
+    assetAllocation = {
+      usStocks: 40,
+      intlStocks: 25,
+      bonds: 5,
+      commodities: 8,
+      alternatives: 7,
+      crypto: experienceWeight >= 3 ? 10 : 5,
+      cash: experienceWeight >= 3 ? 5 : 10,
+    };
   }
 
   return {
@@ -232,18 +301,31 @@ export function RiskAssessment({ onComplete, onCancel }: RiskAssessmentProps) {
         <div className="bg-gray-800 rounded-xl p-4">
           <h4 className="font-medium text-white mb-3">Suggested Asset Allocation</h4>
           <div className="space-y-2">
+            {/* US Stocks */}
             <div className="flex items-center gap-3">
-              <div className="w-24 text-sm text-gray-400">Stocks</div>
+              <div className="w-28 text-sm text-gray-400">US Stocks</div>
               <div className="flex-1 h-4 bg-gray-700 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-dexter-500 rounded-full"
-                  style={{ width: `${result.assetAllocation.stocks}%` }}
+                  style={{ width: `${result.assetAllocation.usStocks}%` }}
                 />
               </div>
-              <div className="w-12 text-sm text-gray-300 text-right">{result.assetAllocation.stocks}%</div>
+              <div className="w-12 text-sm text-gray-300 text-right">{result.assetAllocation.usStocks}%</div>
             </div>
+            {/* International Stocks */}
             <div className="flex items-center gap-3">
-              <div className="w-24 text-sm text-gray-400">Bonds</div>
+              <div className="w-28 text-sm text-gray-400">Int'l Stocks</div>
+              <div className="flex-1 h-4 bg-gray-700 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-dexter-400 rounded-full"
+                  style={{ width: `${result.assetAllocation.intlStocks}%` }}
+                />
+              </div>
+              <div className="w-12 text-sm text-gray-300 text-right">{result.assetAllocation.intlStocks}%</div>
+            </div>
+            {/* Bonds */}
+            <div className="flex items-center gap-3">
+              <div className="w-28 text-sm text-gray-400">Bonds</div>
               <div className="flex-1 h-4 bg-gray-700 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-blue-500 rounded-full"
@@ -252,8 +334,44 @@ export function RiskAssessment({ onComplete, onCancel }: RiskAssessmentProps) {
               </div>
               <div className="w-12 text-sm text-gray-300 text-right">{result.assetAllocation.bonds}%</div>
             </div>
+            {/* Commodities */}
             <div className="flex items-center gap-3">
-              <div className="w-24 text-sm text-gray-400">Cash</div>
+              <div className="w-28 text-sm text-gray-400">Commodities</div>
+              <div className="flex-1 h-4 bg-gray-700 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-yellow-500 rounded-full"
+                  style={{ width: `${result.assetAllocation.commodities}%` }}
+                />
+              </div>
+              <div className="w-12 text-sm text-gray-300 text-right">{result.assetAllocation.commodities}%</div>
+            </div>
+            {/* Alternatives */}
+            <div className="flex items-center gap-3">
+              <div className="w-28 text-sm text-gray-400">Alternatives</div>
+              <div className="flex-1 h-4 bg-gray-700 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-purple-500 rounded-full"
+                  style={{ width: `${result.assetAllocation.alternatives}%` }}
+                />
+              </div>
+              <div className="w-12 text-sm text-gray-300 text-right">{result.assetAllocation.alternatives}%</div>
+            </div>
+            {/* Crypto - only show if > 0 */}
+            {result.assetAllocation.crypto > 0 && (
+              <div className="flex items-center gap-3">
+                <div className="w-28 text-sm text-gray-400">Crypto</div>
+                <div className="flex-1 h-4 bg-gray-700 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-orange-500 rounded-full"
+                    style={{ width: `${result.assetAllocation.crypto}%` }}
+                  />
+                </div>
+                <div className="w-12 text-sm text-gray-300 text-right">{result.assetAllocation.crypto}%</div>
+              </div>
+            )}
+            {/* Cash */}
+            <div className="flex items-center gap-3">
+              <div className="w-28 text-sm text-gray-400">Cash</div>
               <div className="flex-1 h-4 bg-gray-700 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-gray-500 rounded-full"

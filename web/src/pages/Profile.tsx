@@ -289,15 +289,43 @@ export default function Profile() {
                       </button>
                     </div>
                     <p className="text-sm text-gray-400 mb-3">{profile.riskAssessment.description}</p>
-                    <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="grid grid-cols-4 gap-2 text-center">
                       <div className="bg-gray-700 rounded-lg p-2">
-                        <div className="text-lg font-bold text-dexter-400">{profile.riskAssessment.assetAllocation.stocks}%</div>
-                        <div className="text-xs text-gray-400">Stocks</div>
+                        <div className="text-lg font-bold text-dexter-400">
+                          {'usStocks' in profile.riskAssessment.assetAllocation
+                            ? profile.riskAssessment.assetAllocation.usStocks
+                            : (profile.riskAssessment.assetAllocation as { stocks: number }).stocks}%
+                        </div>
+                        <div className="text-xs text-gray-400">US Stocks</div>
                       </div>
+                      {'usStocks' in profile.riskAssessment.assetAllocation && (
+                        <div className="bg-gray-700 rounded-lg p-2">
+                          <div className="text-lg font-bold text-dexter-300">{profile.riskAssessment.assetAllocation.intlStocks}%</div>
+                          <div className="text-xs text-gray-400">Int'l</div>
+                        </div>
+                      )}
                       <div className="bg-gray-700 rounded-lg p-2">
                         <div className="text-lg font-bold text-blue-400">{profile.riskAssessment.assetAllocation.bonds}%</div>
                         <div className="text-xs text-gray-400">Bonds</div>
                       </div>
+                      {'usStocks' in profile.riskAssessment.assetAllocation && (
+                        <>
+                          <div className="bg-gray-700 rounded-lg p-2">
+                            <div className="text-lg font-bold text-yellow-400">{profile.riskAssessment.assetAllocation.commodities}%</div>
+                            <div className="text-xs text-gray-400">Cmdty</div>
+                          </div>
+                          <div className="bg-gray-700 rounded-lg p-2">
+                            <div className="text-lg font-bold text-purple-400">{profile.riskAssessment.assetAllocation.alternatives}%</div>
+                            <div className="text-xs text-gray-400">Alts</div>
+                          </div>
+                          {profile.riskAssessment.assetAllocation.crypto > 0 && (
+                            <div className="bg-gray-700 rounded-lg p-2">
+                              <div className="text-lg font-bold text-orange-400">{profile.riskAssessment.assetAllocation.crypto}%</div>
+                              <div className="text-xs text-gray-400">Crypto</div>
+                            </div>
+                          )}
+                        </>
+                      )}
                       <div className="bg-gray-700 rounded-lg p-2">
                         <div className="text-lg font-bold text-gray-300">{profile.riskAssessment.assetAllocation.cash}%</div>
                         <div className="text-xs text-gray-400">Cash</div>

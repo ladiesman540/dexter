@@ -168,10 +168,30 @@ export function useProfile() {
 
     // Investment profile - use detailed assessment if available
     if (profile.riskAssessment) {
-      parts.push(`Risk tolerance: ${profile.riskAssessment.tolerance} (score: ${profile.riskAssessment.score}/5)`);
+      const alloc = profile.riskAssessment.assetAllocation;
+      parts.push(`Risk tolerance: ${profile.riskAssessment.tolerance.toUpperCase()} (score: ${profile.riskAssessment.score}/5)`);
       parts.push(`Risk profile: ${profile.riskAssessment.description}`);
-      parts.push(`Recommended investment style: ${profile.riskAssessment.investmentStyle}`);
-      parts.push(`Suggested allocation: ${profile.riskAssessment.assetAllocation.stocks}% stocks, ${profile.riskAssessment.assetAllocation.bonds}% bonds, ${profile.riskAssessment.assetAllocation.cash}% cash`);
+      parts.push(`Investment style guidance: ${profile.riskAssessment.investmentStyle}`);
+
+      // Format expanded allocation - check for new format vs legacy
+      if ('usStocks' in alloc) {
+        const allocParts = [
+          `US Stocks ${alloc.usStocks}%`,
+          `Int'l Stocks ${alloc.intlStocks}%`,
+          `Bonds ${alloc.bonds}%`,
+          `Commodities ${alloc.commodities}%`,
+          `Alternatives ${alloc.alternatives}%`,
+        ];
+        if (alloc.crypto > 0) {
+          allocParts.push(`Crypto ${alloc.crypto}%`);
+        }
+        allocParts.push(`Cash ${alloc.cash}%`);
+        parts.push(`Target allocation: ${allocParts.join(', ')}`);
+      } else {
+        // Legacy 3-category format
+        const legacyAlloc = alloc as { stocks: number; bonds: number; cash: number };
+        parts.push(`Target allocation: Stocks ${legacyAlloc.stocks}%, Bonds ${legacyAlloc.bonds}%, Cash ${legacyAlloc.cash}%`);
+      }
     } else if (profile.riskTolerance) {
       parts.push(`Risk tolerance: ${profile.riskTolerance}`);
     }
@@ -183,26 +203,28 @@ export function useProfile() {
       parts.push(`Investment experience: ${profile.investmentExperience}`);
     }
     if (profile.investmentStyle) {
-      parts.push(`Investment style: ${profile.investmentStyle}`);
+      parts.push(`Preferred approach: ${profile.investmentStyle} investing`);
     }
     if (profile.dividendPreference) {
       parts.push(`Dividend preference: ${profile.dividendPreference}`);
     }
 
-    // Sectors
+    // Sectors - make these actionable with clear labels
     if (profile.preferredSectors.length > 0) {
-      parts.push(`Preferred sectors: ${profile.preferredSectors.join(', ')}`);
+      parts.push(`PREFERRED sectors (emphasize these): ${profile.preferredSectors.join(', ')}`);
     }
     if (profile.excludedSectors.length > 0) {
-      parts.push(`Sectors to avoid: ${profile.excludedSectors.join(', ')}`);
+      parts.push(`EXCLUDED sectors (DO NOT recommend): ${profile.excludedSectors.join(', ')}`);
     }
 
-    // Goals
+    // Goals - format with actionable context
     if (profile.financialGoals.length > 0) {
-      const goalsList = profile.financialGoals.map(
-        (g) => `${g.name} ($${g.targetAmount.toLocaleString()} by ${g.targetDate}, ${g.priority} priority, ${Math.round((g.currentAmount / g.targetAmount) * 100)}% complete)`
-      );
-      parts.push(`Financial goals: ${goalsList.join('; ')}`);
+      const goalsList = profile.financialGoals.map((g) => {
+        const progress = Math.round((g.currentAmount / g.targetAmount) * 100);
+        const remaining = g.targetAmount - g.currentAmount;
+        return `${g.name}: $${remaining.toLocaleString()} needed by ${g.targetDate} (${progress}% complete, ${g.priority} priority)`;
+      });
+      parts.push(`Active financial goals:\n  - ${goalsList.join('\n  - ')}`);
     }
 
     // Notes
