@@ -227,6 +227,7 @@ async function handleQuery(
 // Create server
 const server = Bun.serve({
   port: PORT,
+  idleTimeout: 120, // 2 minutes for streaming responses
   async fetch(req) {
     const url = new URL(req.url);
 
