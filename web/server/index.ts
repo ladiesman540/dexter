@@ -147,6 +147,12 @@ async function handleQuery(
   const messageHistory = getMessageHistory(sessionId);
   let isClosed = false;
 
+  // Promise to track when answer stream is fully consumed
+  let answerStreamDone: (() => void) | null = null;
+  const answerStreamPromise = new Promise<void>((resolve) => {
+    answerStreamDone = resolve;
+  });
+
   const sendEvent = (type: string, data: unknown) => {
     if (isClosed) return; // Don't write to closed stream
     try {
@@ -208,20 +214,32 @@ async function handleQuery(
         onProgressMessage: (message) => {
           sendEvent('progress', { progressMessage: message });
         },
-        onAnswerStream: async (stream) => {
-          let fullAnswer = '';
-          for await (const chunk of stream) {
-            fullAnswer += chunk;
-            sendEvent('answer_chunk', chunk);
-          }
-          // Save to message history
-          await messageHistory.addMessage(query, fullAnswer);
-          sendEvent('complete', { answer: fullAnswer });
+        onAnswerStream: (stream) => {
+          // Consume the stream asynchronously
+          (async () => {
+            try {
+              let fullAnswer = '';
+              for await (const chunk of stream) {
+                fullAnswer += chunk;
+                sendEvent('answer_chunk', chunk);
+              }
+              // Save to message history
+              await messageHistory.addMessage(query, fullAnswer);
+              sendEvent('complete', { answer: fullAnswer });
+            } catch (err) {
+              sendEvent('error', (err as Error).message);
+            } finally {
+              answerStreamDone?.();
+            }
+          })();
         },
       },
     });
 
     await agent.run(query, messageHistory);
+
+    // Wait for answer stream to be fully consumed
+    await answerStreamPromise;
   } catch (error) {
     sendEvent('error', (error as Error).message);
   } finally {
