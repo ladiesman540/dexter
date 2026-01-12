@@ -145,10 +145,16 @@ async function handleQuery(
 ) {
   const encoder = new TextEncoder();
   const messageHistory = getMessageHistory(sessionId);
+  let isClosed = false;
 
   const sendEvent = (type: string, data: unknown) => {
-    const event = `data: ${JSON.stringify({ type, data })}\n\n`;
-    writer.write(encoder.encode(event));
+    if (isClosed) return; // Don't write to closed stream
+    try {
+      const event = `data: ${JSON.stringify({ type, data })}\n\n`;
+      writer.write(encoder.encode(event));
+    } catch {
+      isClosed = true; // Mark as closed if write fails
+    }
   };
 
   try {
@@ -219,8 +225,15 @@ async function handleQuery(
   } catch (error) {
     sendEvent('error', (error as Error).message);
   } finally {
-    writer.write(encoder.encode('data: [DONE]\n\n'));
-    writer.close();
+    if (!isClosed) {
+      try {
+        writer.write(encoder.encode('data: [DONE]\n\n'));
+        writer.close();
+      } catch {
+        // Stream already closed, ignore
+      }
+    }
+    isClosed = true;
   }
 }
 
