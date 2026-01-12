@@ -47,6 +47,13 @@ function PhaseIndicator({
 export function AgentProgress({ progress }: AgentProgressProps) {
   const phases: Phase[] = ['understand', 'plan', 'execute', 'reflect', 'answer'];
 
+  // Safety check for undefined progress
+  if (!progress) {
+    return null;
+  }
+
+  const tasks = progress.tasks || [];
+
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
       {/* Phase indicators */}
@@ -77,12 +84,12 @@ export function AgentProgress({ progress }: AgentProgressProps) {
       )}
 
       {/* Tasks */}
-      {progress.tasks.length > 0 && (
+      {tasks.length > 0 && (
         <div className="space-y-2">
           <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">
             Tasks
           </p>
-          {progress.tasks.map((task) => (
+          {tasks.map((task) => (
             <div
               key={task.id}
               className={`flex items-start gap-3 px-3 py-2 rounded-lg text-sm ${
