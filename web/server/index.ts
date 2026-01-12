@@ -1,13 +1,17 @@
 import { Agent } from '../../src/agent/orchestrator.js';
 import { MessageHistory } from '../../src/utils/message-history.js';
-import {
-  checkApiKeyExists,
-  saveApiKeyToEnv,
-} from '../../src/utils/env.js';
 import { config } from 'dotenv';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+// Get project root directory
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const PROJECT_ROOT = resolve(__dirname, '../..');
+const ENV_PATH = resolve(PROJECT_ROOT, '.env');
 
 // Load environment variables
-config({ path: '../.env' });
+config({ path: ENV_PATH });
 
 const PORT = 3001;
 
@@ -19,6 +23,78 @@ function getMessageHistory(sessionId: string): MessageHistory {
     messageHistories.set(sessionId, new MessageHistory());
   }
   return messageHistories.get(sessionId)!;
+}
+
+// Check if API key exists in .env
+function checkApiKeyExists(keyName: string): boolean {
+  // Check process.env first
+  const value = process.env[keyName];
+  if (value && value.trim() && !value.trim().startsWith('your-')) {
+    return true;
+  }
+
+  // Check .env file directly
+  if (existsSync(ENV_PATH)) {
+    const envContent = readFileSync(ENV_PATH, 'utf-8');
+    for (const line of envContent.split('\n')) {
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.startsWith('#') && trimmed.includes('=')) {
+        const [key, ...valueParts] = trimmed.split('=');
+        if (key.trim() === keyName) {
+          const val = valueParts.join('=').trim();
+          if (val && !val.startsWith('your-')) {
+            return true;
+          }
+        }
+      }
+    }
+  }
+  return false;
+}
+
+// Save API key to .env file
+function saveApiKeyToEnv(keyName: string, keyValue: string): boolean {
+  try {
+    let lines: string[] = [];
+    let keyUpdated = false;
+
+    if (existsSync(ENV_PATH)) {
+      const existingContent = readFileSync(ENV_PATH, 'utf-8');
+      for (const line of existingContent.split('\n')) {
+        const stripped = line.trim();
+        if (!stripped || stripped.startsWith('#')) {
+          lines.push(line);
+        } else if (stripped.includes('=')) {
+          const key = stripped.split('=')[0].trim();
+          if (key === keyName) {
+            lines.push(`${keyName}=${keyValue}`);
+            keyUpdated = true;
+          } else {
+            lines.push(line);
+          }
+        } else {
+          lines.push(line);
+        }
+      }
+
+      if (!keyUpdated) {
+        lines.push(`${keyName}=${keyValue}`);
+      }
+    } else {
+      lines.push('# Dexter API Keys');
+      lines.push(`${keyName}=${keyValue}`);
+    }
+
+    writeFileSync(ENV_PATH, lines.join('\n'));
+
+    // Update process.env
+    process.env[keyName] = keyValue;
+
+    return true;
+  } catch (err) {
+    console.error('Failed to save API key:', err);
+    return false;
+  }
 }
 
 // Get current settings
@@ -55,7 +131,7 @@ function saveSettings(settings: Record<string, string | undefined>) {
   }
 
   // Reload env
-  config({ override: true, path: '../.env' });
+  config({ override: true, path: ENV_PATH });
 
   return getSettings();
 }
