@@ -3,7 +3,18 @@ import { TavilySearch } from '@langchain/tavily';
 import { z } from 'zod';
 import { formatToolResult } from '../types.js';
 
-const tavilyClient = new TavilySearch({ maxResults: 5 });
+// Lazy initialization - only create client when API key is available
+let tavilyClient: TavilySearch | null = null;
+
+function getTavilyClient(): TavilySearch {
+  if (!tavilyClient) {
+    if (!process.env.TAVILY_API_KEY) {
+      throw new Error('TAVILY_API_KEY is not set. Please add it in Settings.');
+    }
+    tavilyClient = new TavilySearch({ maxResults: 5 });
+  }
+  return tavilyClient;
+}
 
 export const tavilySearch = new DynamicStructuredTool({
   name: 'search_web',
@@ -12,7 +23,8 @@ export const tavilySearch = new DynamicStructuredTool({
     query: z.string().describe('The search query to look up on the web'),
   }),
   func: async (input) => {
-    const result = await tavilyClient.invoke({ query: input.query });
+    const client = getTavilyClient();
+    const result = await client.invoke({ query: input.query });
     const parsed = typeof result === 'string' ? JSON.parse(result) : result;
     const urls = parsed.results
       ?.map((r: { url?: string }) => r.url)
