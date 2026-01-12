@@ -12,7 +12,12 @@
     "dev": "bun --watch run src/index.tsx",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
-    "test:watch": "bun test --watch"
+    "test:watch": "bun test --watch",
+    "web": "bun run web/server/index.ts & cd web && bun run dev:client",
+    "web:server": "bun run --watch web/server/index.ts",
+    "web:client": "cd web && bun run dev:client",
+    "web:install": "cd web && bun install",
+    "web:build": "cd web && bun run build"
   },
   "dependencies": {
     "@langchain/anthropic": "^1.1.3",
