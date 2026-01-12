@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Bot, Sparkles } from 'lucide-react';
 import { Layout } from './components/Layout';
@@ -7,8 +7,20 @@ import { ChatInput } from './components/ChatInput';
 import { AgentProgress } from './components/AgentProgress';
 import { useChat } from './hooks/useChat';
 import { useSettings } from './hooks/useSettings';
+import { useChatHistory } from './hooks/useChatHistory';
 
-function EmptyState() {
+interface EmptyStateProps {
+  onQueryClick: (query: string) => void;
+}
+
+function EmptyState({ onQueryClick }: EmptyStateProps) {
+  const queries = [
+    "What was Apple's revenue growth over the last 4 quarters?",
+    "Compare Microsoft and Google's operating margins",
+    "Analyze Tesla's cash flow trends",
+    "What is Amazon's debt-to-equity ratio?",
+  ];
+
   return (
     <div className="flex flex-col items-center justify-center h-full text-center px-4">
       <div className="w-20 h-20 bg-gradient-to-br from-dexter-500 to-dexter-600 rounded-2xl flex items-center justify-center mb-6">
@@ -23,14 +35,10 @@ function EmptyState() {
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-2xl">
-        {[
-          "What was Apple's revenue growth over the last 4 quarters?",
-          "Compare Microsoft and Google's operating margins",
-          "Analyze Tesla's cash flow trends",
-          "What is Amazon's debt-to-equity ratio?",
-        ].map((query, i) => (
+        {queries.map((query, i) => (
           <button
             key={i}
+            onClick={() => onQueryClick(query)}
             className="text-left px-4 py-3 bg-gray-900 hover:bg-gray-800 border border-gray-800 hover:border-gray-700 rounded-xl text-sm text-gray-300 transition-colors"
           >
             {query}
@@ -44,28 +52,80 @@ function EmptyState() {
 export default function App() {
   const { settings } = useSettings();
   const {
+    sessions,
+    currentSession,
+    currentSessionId,
+    createSession,
+    updateSessionMessages,
+    switchSession,
+    deleteSession,
+  } = useChatHistory();
+
+  const {
     messages,
     isProcessing,
     currentProgress,
     streamingContent,
-    sendMessage,
+    sendMessage: sendChatMessage,
     cancelQuery,
+    setMessages,
   } = useChat(settings.selectedModel);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Load messages when session changes
+  useEffect(() => {
+    if (currentSession) {
+      setMessages(currentSession.messages);
+    } else {
+      setMessages([]);
+    }
+  }, [currentSessionId, currentSession, setMessages]);
+
+  // Save messages when they change
+  useEffect(() => {
+    if (currentSessionId && messages.length > 0) {
+      updateSessionMessages(currentSessionId, messages);
+    }
+  }, [messages, currentSessionId, updateSessionMessages]);
 
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, streamingContent, currentProgress]);
 
+  // Handle sending a message
+  const handleSendMessage = useCallback(
+    (query: string) => {
+      // Create a new session if none exists
+      let sessionId = currentSessionId;
+      if (!sessionId) {
+        sessionId = createSession();
+      }
+      sendChatMessage(query);
+    },
+    [currentSessionId, createSession, sendChatMessage]
+  );
+
+  // Handle new chat
+  const handleNewChat = useCallback(() => {
+    createSession();
+    setMessages([]);
+  }, [createSession, setMessages]);
+
   return (
-    <Layout>
+    <Layout
+      sessions={sessions}
+      currentSessionId={currentSessionId}
+      onNewChat={handleNewChat}
+      onSelectSession={switchSession}
+      onDeleteSession={deleteSession}
+    >
       <div className="flex flex-col h-full">
         {/* Messages area */}
         <div className="flex-1 overflow-y-auto">
           {messages.length === 0 && !isProcessing ? (
-            <EmptyState />
+            <EmptyState onQueryClick={handleSendMessage} />
           ) : (
             <div className="max-w-4xl mx-auto py-6 px-4 space-y-6">
               {messages.map((message) => (
@@ -106,7 +166,7 @@ export default function App() {
         <div className="border-t border-gray-800 p-4">
           <div className="max-w-4xl mx-auto">
             <ChatInput
-              onSend={sendMessage}
+              onSend={handleSendMessage}
               onCancel={cancelQuery}
               isProcessing={isProcessing}
             />

@@ -119,6 +119,7 @@ export function useChat(model: string) {
 
   return {
     messages,
+    setMessages,
     isProcessing,
     currentProgress,
     streamingContent,
