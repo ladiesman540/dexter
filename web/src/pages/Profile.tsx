@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Save, Plus, Trash2, Target, TrendingUp, Shield, Loader2 } from 'lucide-react';
+import { Save, Plus, Trash2, Target, TrendingUp, Shield, Loader2, ClipboardCheck, RotateCcw } from 'lucide-react';
 import { Layout } from '../components/Layout';
 import { useProfile, FinancialGoal } from '../hooks/useProfile';
+import { RiskAssessment, RiskAssessmentResult } from '../components/RiskAssessment';
 
 const SECTORS = [
   'Technology',
@@ -28,6 +29,7 @@ export default function Profile() {
   } = useProfile();
 
   const [saved, setSaved] = useState(false);
+  const [showRiskQuiz, setShowRiskQuiz] = useState(false);
   const [newGoal, setNewGoal] = useState({
     name: '',
     targetAmount: '',
@@ -39,6 +41,15 @@ export default function Profile() {
   const handleSave = () => {
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  };
+
+  const handleRiskAssessmentComplete = (result: RiskAssessmentResult) => {
+    saveProfile({
+      riskTolerance: result.tolerance,
+      riskAssessment: result,
+    });
+    setShowRiskQuiz(false);
+    handleSave();
   };
 
   const handleAddGoal = () => {
@@ -238,21 +249,83 @@ export default function Profile() {
                 <span>Investment Profile</span>
               </h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm text-gray-400 mb-2">Risk Tolerance</label>
-                  <select
-                    value={profile.riskTolerance}
-                    onChange={(e) => saveProfile({ riskTolerance: e.target.value as UserProfile['riskTolerance'] })}
-                    className="input-field"
-                  >
-                    <option value="">Select...</option>
-                    <option value="conservative">Conservative - Preserve capital</option>
-                    <option value="moderate">Moderate - Balanced growth</option>
-                    <option value="aggressive">Aggressive - Maximum growth</option>
-                  </select>
+              {/* Risk Assessment Quiz or Results */}
+              {showRiskQuiz ? (
+                <div className="mb-6">
+                  <RiskAssessment
+                    onComplete={handleRiskAssessmentComplete}
+                    onCancel={() => setShowRiskQuiz(false)}
+                  />
                 </div>
+              ) : profile.riskAssessment ? (
+                <div className="mb-6">
+                  <div className="bg-gray-800 rounded-xl p-4 mb-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                          profile.riskAssessment.tolerance === 'conservative'
+                            ? 'bg-blue-500/20'
+                            : profile.riskAssessment.tolerance === 'moderate'
+                            ? 'bg-yellow-500/20'
+                            : 'bg-red-500/20'
+                        }`}>
+                          <span className="text-xl">
+                            {profile.riskAssessment.tolerance === 'conservative' ? '🛡️' : profile.riskAssessment.tolerance === 'moderate' ? '⚖️' : '🚀'}
+                          </span>
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-white capitalize">
+                            {profile.riskAssessment.tolerance} Investor
+                          </h3>
+                          <p className="text-sm text-gray-400">Risk Score: {profile.riskAssessment.score}/5</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setShowRiskQuiz(true)}
+                        className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                        Retake
+                      </button>
+                    </div>
+                    <p className="text-sm text-gray-400 mb-3">{profile.riskAssessment.description}</p>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="bg-gray-700 rounded-lg p-2">
+                        <div className="text-lg font-bold text-dexter-400">{profile.riskAssessment.assetAllocation.stocks}%</div>
+                        <div className="text-xs text-gray-400">Stocks</div>
+                      </div>
+                      <div className="bg-gray-700 rounded-lg p-2">
+                        <div className="text-lg font-bold text-blue-400">{profile.riskAssessment.assetAllocation.bonds}%</div>
+                        <div className="text-xs text-gray-400">Bonds</div>
+                      </div>
+                      <div className="bg-gray-700 rounded-lg p-2">
+                        <div className="text-lg font-bold text-gray-300">{profile.riskAssessment.assetAllocation.cash}%</div>
+                        <div className="text-xs text-gray-400">Cash</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="mb-6">
+                  <div className="bg-gray-800/50 rounded-xl p-6 text-center">
+                    <ClipboardCheck className="w-10 h-10 text-dexter-500 mx-auto mb-3" />
+                    <h3 className="font-medium text-white mb-2">Discover Your Risk Tolerance</h3>
+                    <p className="text-sm text-gray-400 mb-4">
+                      Take a quick 10-question quiz to understand your true risk tolerance based on your
+                      behavior and preferences, not just what you think you want.
+                    </p>
+                    <button
+                      onClick={() => setShowRiskQuiz(true)}
+                      className="btn-primary inline-flex items-center gap-2"
+                    >
+                      <ClipboardCheck className="w-4 h-4" />
+                      Take Risk Assessment Quiz
+                    </button>
+                  </div>
+                </div>
+              )}
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-gray-400 mb-2">Investment Horizon</label>
                   <select
@@ -295,7 +368,7 @@ export default function Profile() {
                   </select>
                 </div>
 
-                <div className="md:col-span-2">
+                <div>
                   <label className="block text-sm text-gray-400 mb-2">Dividend Preference</label>
                   <select
                     value={profile.dividendPreference}

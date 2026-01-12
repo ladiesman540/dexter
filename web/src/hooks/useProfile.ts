@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import type { RiskAssessmentResult } from '../components/RiskAssessment';
 
 export interface FinancialGoal {
   id: string;
@@ -25,6 +26,7 @@ export interface UserProfile {
 
   // Investment Profile
   riskTolerance: 'conservative' | 'moderate' | 'aggressive' | '';
+  riskAssessment: RiskAssessmentResult | null; // Detailed assessment from quiz
   investmentHorizon: 'short' | 'medium' | 'long' | ''; // <3 years, 3-10 years, 10+ years
   investmentExperience: 'beginner' | 'intermediate' | 'advanced' | '';
 
@@ -52,6 +54,7 @@ const DEFAULT_PROFILE: UserProfile = {
   totalDebt: null,
   emergencyFundMonths: null,
   riskTolerance: '',
+  riskAssessment: null,
   investmentHorizon: '',
   investmentExperience: '',
   preferredSectors: [],
@@ -163,8 +166,13 @@ export function useProfile() {
       parts.push(`Financial situation: ${stats.join(', ')}`);
     }
 
-    // Investment profile
-    if (profile.riskTolerance) {
+    // Investment profile - use detailed assessment if available
+    if (profile.riskAssessment) {
+      parts.push(`Risk tolerance: ${profile.riskAssessment.tolerance} (score: ${profile.riskAssessment.score}/5)`);
+      parts.push(`Risk profile: ${profile.riskAssessment.description}`);
+      parts.push(`Recommended investment style: ${profile.riskAssessment.investmentStyle}`);
+      parts.push(`Suggested allocation: ${profile.riskAssessment.assetAllocation.stocks}% stocks, ${profile.riskAssessment.assetAllocation.bonds}% bonds, ${profile.riskAssessment.assetAllocation.cash}% cash`);
+    } else if (profile.riskTolerance) {
       parts.push(`Risk tolerance: ${profile.riskTolerance}`);
     }
     if (profile.investmentHorizon) {
@@ -211,6 +219,7 @@ export function useProfile() {
     profile.age ||
     profile.annualIncome ||
     profile.riskTolerance ||
+    profile.riskAssessment ||
     profile.financialGoals.length > 0
   );
 
