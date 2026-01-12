@@ -141,11 +141,17 @@ async function handleQuery(
   query: string,
   model: string,
   sessionId: string,
+  profileContext: string | undefined,
   writer: WritableStreamDefaultWriter<Uint8Array>
 ) {
   const encoder = new TextEncoder();
   const messageHistory = getMessageHistory(sessionId);
   let isClosed = false;
+
+  // Prepend profile context to query if available
+  const fullQuery = profileContext
+    ? `[USER PROFILE]\n${profileContext}\n\n[QUERY]\n${query}`
+    : query;
 
   // Promise to track when answer stream is fully consumed
   let answerStreamDone: (() => void) | null = null;
@@ -236,7 +242,7 @@ async function handleQuery(
       },
     });
 
-    await agent.run(query, messageHistory);
+    await agent.run(fullQuery, messageHistory);
 
     // Wait for answer stream to be fully consumed
     await answerStreamPromise;
@@ -297,7 +303,7 @@ const server = Bun.serve({
     if (url.pathname === '/api/query' && req.method === 'POST') {
       try {
         const body = await req.json();
-        const { query, model } = body;
+        const { query, model, profileContext } = body;
         const sessionId = req.headers.get('x-session-id') || 'default';
 
         // Create streaming response
@@ -305,7 +311,7 @@ const server = Bun.serve({
         const writer = writable.getWriter();
 
         // Start processing in background
-        handleQuery(query, model, sessionId, writer);
+        handleQuery(query, model, sessionId, profileContext, writer);
 
         return new Response(readable, {
           headers: {

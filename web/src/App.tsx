@@ -8,6 +8,7 @@ import { AgentProgress } from './components/AgentProgress';
 import { useChat } from './hooks/useChat';
 import { useSettings } from './hooks/useSettings';
 import { useChatHistory } from './hooks/useChatHistory';
+import { useProfile } from './hooks/useProfile';
 
 interface EmptyStateProps {
   onQueryClick: (query: string) => void;
@@ -51,6 +52,7 @@ function EmptyState({ onQueryClick }: EmptyStateProps) {
 
 export default function App() {
   const { settings } = useSettings();
+  const { getProfileContext } = useProfile();
   const {
     sessions,
     currentSession,
@@ -61,6 +63,8 @@ export default function App() {
     deleteSession,
   } = useChatHistory();
 
+  const profileContext = getProfileContext();
+
   const {
     messages,
     isProcessing,
@@ -69,7 +73,7 @@ export default function App() {
     sendMessage: sendChatMessage,
     cancelQuery,
     setMessages,
-  } = useChat(settings.selectedModel);
+  } = useChat({ model: settings.selectedModel, profileContext });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 

@@ -1,7 +1,12 @@
 import { useState, useCallback, useRef } from 'react';
 import type { Message, AgentProgress } from '../types';
 
-export function useChat(model: string) {
+interface UseChatOptions {
+  model: string;
+  profileContext?: string;
+}
+
+export function useChat({ model, profileContext }: UseChatOptions) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentProgress, setCurrentProgress] = useState<AgentProgress | null>(null);
@@ -30,7 +35,7 @@ export function useChat(model: string) {
       const response = await fetch('/api/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query, model }),
+        body: JSON.stringify({ query, model, profileContext }),
         signal: abortControllerRef.current.signal,
       });
 
@@ -101,7 +106,7 @@ export function useChat(model: string) {
       setIsProcessing(false);
       abortControllerRef.current = null;
     }
-  }, [isProcessing, model]);
+  }, [isProcessing, model, profileContext]);
 
   const cancelQuery = useCallback(() => {
     if (abortControllerRef.current) {
